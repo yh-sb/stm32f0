@@ -25,7 +25,6 @@
  * 1 tab == 4 spaces!
  */
 
-
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
 
@@ -41,9 +40,12 @@
  * See http://www.freertos.org/a00110.html
  *----------------------------------------------------------*/
 
-/* Ensure stdint is only used by the compiler, and not the assembler. */
+/* Ensure definitions are only used by the compiler, and not by the assembler. */
+#if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
+#include <assert.h>
 #include <stdint.h>
 extern uint32_t SystemCoreClock;
+#endif
 
 #define configUSE_PREEMPTION            1
 #define configUSE_IDLE_HOOK             0
@@ -74,7 +76,7 @@ extern uint32_t SystemCoreClock;
 #define configUSE_TIMERS                1
 #define configTIMER_TASK_PRIORITY       2
 #define configTIMER_QUEUE_LENGTH        5
-#define configTIMER_TASK_STACK_DEPTH    80
+#define configTIMER_TASK_STACK_DEPTH    (configMINIMAL_STACK_SIZE)
 
 /* Set the following definitions to 1 to include the API function, or zero
 to exclude the API function. */
@@ -87,12 +89,10 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelay              1
 #define INCLUDE_uxTaskGetStackHighWaterMark 1
 
-/* Normal assert() semantics without relying on the provision of an assert.h
-header file. */
-#define configASSERT( x ) if( ( x ) == 0 ) { taskDISABLE_INTERRUPTS(); for( ;; ); }
+#define configASSERT(x) assert(x)
 
 /* Definitions that map the FreeRTOS port interrupt handlers to their CMSIS
-standard names - or at least those used in the unmodified vector table. */
+standard names. */
 #define vPortSVCHandler SVC_Handler
 #define xPortPendSVHandler PendSV_Handler
 #define xPortSysTickHandler SysTick_Handler
