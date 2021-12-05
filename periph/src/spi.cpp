@@ -13,10 +13,6 @@ using namespace periph;
 
 static spi *obj_list[spi::SPI_END];
 
-#if configUSE_TRACE_FACILITY
-static traceHandle isr_dma_tx, isr_dma_rx, isr_spi;
-#endif
-
 spi::spi(spi_t spi, uint32_t baud, cpol_t cpol, cpha_t cpha,
     bit_order_t bit_order, dma &dma_tx, dma &dma_rx, gpio &mosi,
     gpio &miso, gpio &clk):
@@ -49,13 +45,6 @@ spi::spi(spi_t spi, uint32_t baud, cpol_t cpol, cpha_t cpha,
     assert(_clk.mode() == gpio::mode::AF);
     
     assert(api_lock = xSemaphoreCreateMutex());
-    
-#if configUSE_TRACE_FACILITY
-    vTraceSetMutexName((void *)api_lock, "spi_api_lock");
-    isr_dma_tx = xTraceSetISRProperties("ISR_dma_spi_tx", 1);
-    isr_dma_rx = xTraceSetISRProperties("ISR_dma_spi_rx", 1);
-    isr_spi = xTraceSetISRProperties("ISR_spi", 1);
-#endif
     
     obj_list[_spi] = this;
     
@@ -362,9 +351,7 @@ void spi::on_dma_tx(dma *dma, dma::event_t event, void *ctx)
 {
     if(event == dma::EVENT_HALF)
         return;
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISRBegin(isr_dma_tx);
-#endif
+    
     spi *obj = static_cast<spi *>(ctx);
     BaseType_t hi_task_woken = 0;
     
@@ -375,12 +362,8 @@ void spi::on_dma_tx(dma *dma, dma::event_t event, void *ctx)
     if(event == dma::EVENT_CMPLT)
     {
         if(obj->rx_buff)
-        {
-#if configUSE_TRACE_FACILITY
-            vTraceStoreISREnd(hi_task_woken);
-#endif
             return;
-        }
+        
         spi->CR2 |= SPI_CR2_TXEIE;
     }
     else if(event == dma::EVENT_ERROR)
@@ -402,19 +385,13 @@ void spi::on_dma_tx(dma *dma, dma::event_t event, void *ctx)
         vTaskNotifyGiveFromISR(obj->task, &hi_task_woken);
         portYIELD_FROM_ISR(hi_task_woken);
     }
-    
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISREnd(hi_task_woken);
-#endif
 }
 
 void spi::on_dma_rx(dma *dma, dma::event_t event, void *ctx)
 {
     if(event == dma::EVENT_HALF)
         return;
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISRBegin(isr_dma_rx);
-#endif
+    
     spi *obj = static_cast<spi *>(ctx);
     SPI_TypeDef *spi = spi_priv::spi[obj->_spi];
     
@@ -434,9 +411,6 @@ void spi::on_dma_rx(dma *dma, dma::event_t event, void *ctx)
     BaseType_t hi_task_woken = 0;
     vTaskNotifyGiveFromISR(obj->task, &hi_task_woken);
     portYIELD_FROM_ISR(hi_task_woken);
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISREnd(hi_task_woken);
-#endif
 }
 
 extern "C" void spi_irq_hndlr(periph::spi *obj)
@@ -444,9 +418,6 @@ extern "C" void spi_irq_hndlr(periph::spi *obj)
     SPI_TypeDef *spi = spi_priv::spi[obj->_spi];
     uint32_t sr = spi->SR;
     uint8_t dr = spi->DR;
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISRBegin(isr_spi);
-#endif
     
     if((spi->CR2 & SPI_CR2_TXEIE) && (sr & SPI_SR_TXE))
     {
@@ -487,9 +458,6 @@ extern "C" void spi_irq_hndlr(periph::spi *obj)
     
     BaseType_t hi_task_woken = 0;
     vTaskNotifyGiveFromISR(obj->task, &hi_task_woken);
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISREnd(hi_task_woken);
-#endif
     portYIELD_FROM_ISR(hi_task_woken);
 }
 

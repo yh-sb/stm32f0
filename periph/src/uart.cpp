@@ -16,10 +16,6 @@ constexpr auto isr_err_flags = USART_ISR_PE | USART_ISR_FE | USART_ISR_NE |
 
 static uart *obj_list[uart::UART_END];
 
-#if configUSE_TRACE_FACILITY
-static traceHandle isr_dma_tx, isr_dma_rx, isr_uart;
-#endif
-
 uart::uart(uart_t uart, uint32_t baud, stopbit_t stopbit, parity_t parity,
     dma &dma_tx, dma &dma_rx, gpio &gpio_tx, gpio &gpio_rx):
     _uart(uart),
@@ -46,13 +42,6 @@ uart::uart(uart_t uart, uint32_t baud, stopbit_t stopbit, parity_t parity,
     assert(rx_gpio.mode() == gpio::mode::AF);
     
     assert(api_lock = xSemaphoreCreateMutex());
-    
-#if configUSE_TRACE_FACILITY
-    vTraceSetMutexName((void *)api_lock, "uart_api_lock");
-    isr_dma_tx = xTraceSetISRProperties("ISR_dma_uart_tx", 1);
-    isr_dma_rx = xTraceSetISRProperties("ISR_dma_uart_rx", 1);
-    isr_uart = xTraceSetISRProperties("ISR_uart", 1);
-#endif
     
     obj_list[_uart] = this;
     
@@ -338,9 +327,7 @@ void uart::on_dma_tx(dma *dma, dma::event_t event, void *ctx)
 {
     if(event == dma::EVENT_HALF)
         return;
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISRBegin(isr_dma_tx);
-#endif
+    
     uart *obj = static_cast<uart *>(ctx);
     
     if(event == dma::EVENT_CMPLT)
@@ -351,17 +338,11 @@ void uart::on_dma_tx(dma *dma, dma::event_t event, void *ctx)
     if(obj->rx_dma.busy())
     {
         // Wait for rx operation
-#if configUSE_TRACE_FACILITY
-        vTraceStoreISREnd(0);
-#endif
         return;
     }
     
     BaseType_t hi_task_woken = 0;
     vTaskNotifyGiveFromISR(obj->task, &hi_task_woken);
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISREnd(hi_task_woken);
-#endif
     portYIELD_FROM_ISR(hi_task_woken);
 }
 
@@ -369,9 +350,7 @@ void uart::on_dma_rx(dma *dma, dma::event_t event, void *ctx)
 {
     if(event == dma::EVENT_HALF)
         return;
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISRBegin(isr_dma_rx);
-#endif
+    
     uart *obj = static_cast<uart *>(ctx);
     USART_TypeDef *uart = uart_priv::uart[obj->_uart];
     
@@ -393,17 +372,11 @@ void uart::on_dma_rx(dma *dma, dma::event_t event, void *ctx)
     if(obj->tx_dma.busy())
     {
         // Wait for tx operation
-#if configUSE_TRACE_FACILITY
-        vTraceStoreISREnd(0);
-#endif
         return;
     }
     
     BaseType_t hi_task_woken = 0;
     vTaskNotifyGiveFromISR(obj->task, &hi_task_woken);
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISREnd(hi_task_woken);
-#endif
     portYIELD_FROM_ISR(hi_task_woken);
 }
 
@@ -413,9 +386,6 @@ extern "C" void uart_irq_hndlr(periph::uart *obj)
     uint32_t sr = uart->ISR;
     uint32_t dr = uart->RDR;
     
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISRBegin(isr_uart);
-#endif
     if((uart->CR1 & USART_CR1_IDLEIE) && (sr & USART_ISR_IDLE))
     {
         // IDLE event has happened (package has been received)
@@ -428,9 +398,6 @@ extern "C" void uart_irq_hndlr(periph::uart *obj)
     }
     else
     {
-#if configUSE_TRACE_FACILITY
-        vTraceStoreISREnd(0);
-#endif
         return;
     }
     
@@ -444,17 +411,11 @@ extern "C" void uart_irq_hndlr(periph::uart *obj)
     if(obj->tx_dma.busy())
     {
         // Wait for tx operation
-#if configUSE_TRACE_FACILITY
-        vTraceStoreISREnd(0);
-#endif
         return;
     }
     
     BaseType_t hi_task_woken = 0;
     vTaskNotifyGiveFromISR(obj->task, &hi_task_woken);
-#if configUSE_TRACE_FACILITY
-    vTraceStoreISREnd(hi_task_woken);
-#endif
     portYIELD_FROM_ISR(hi_task_woken);
 }
 
