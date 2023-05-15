@@ -64,6 +64,13 @@ jobs:
           key: ${{ runner.OS }}-cache-${{ hashFiles('.github/workflows/build.yml') }}
           path: ~/arm-gnu-toolchain
 
+      - name: Install Arm GNU Toolchain
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          curl -L https://developer.arm.com/-/media/Files/downloads/gnu/12.2.mpacbti-rel1/binrel/arm-gnu-toolchain-12.2.mpacbti-rel1-x86_64-arm-none-eabi.tar.xz -o arm-gnu-toolchain.tar.xz
+          mkdir ~/arm-gnu-toolchain
+          tar -xf arm-gnu-toolchain.tar.xz -C ~/arm-gnu-toolchain --strip-components=1
+
       - name: Install dependencies
         run: sudo apt update && sudo apt install ninja-build
 
